@@ -68,3 +68,10 @@
     (org-todo)
     (scholar-copy-org-id)
 )))
+
+;; Jump back to top level heading:
+(defun org-back-to-top-level-heading ()
+  "Go back to the current top level heading."
+  (interactive)
+  (or (re-search-backward "^\* " nil t)
+      (goto-char (point-min))))
