@@ -17,7 +17,6 @@
 
 (require 'reftex)
 (require 'reftex-cite)
-(require 'zotelo)
 (require 'org)
 
 ; Enable the custom-id to be copied by a command
@@ -26,15 +25,11 @@
   (kill-new (with-output-to-string (princ (org-entry-get nil "CUSTOM_ID"))))
 )
 
-(defun scholar-insert-org-link ()
-  ;; This really does the work of reftex-citation.
+(defun scholar-get-bibtex-entries ()
   (interactive)
-  
-  ;; Update the bibtex database
-  (zotelo-update-database)
 
   (let* ((selected-entries (reftex-offer-bib-menu))
-	 (insert-entries selected-entries)
+	 (entries selected-entries)
 	 entry string cite-view)
 
     (unless selected-entries (error "Quit"))
@@ -42,7 +37,7 @@
     (if (stringp selected-entries)
 	;; Nonexistent entry
 	(setq selected-entries nil
-	      insert-entries (list (list selected-entries
+	      entries (list (list selected-entries
 					 (cons "&key" selected-entries))))
       ;; It makes sense to compute the cite-view strings.
       (setq cite-view t))
@@ -51,23 +46,70 @@
       ;; All keys go into a single command - we need to trick a little
       (pop selected-entries)
       (let ((concat-keys (mapconcat 'car selected-entries ",")))
-	(setq insert-entries 
+	(setq entries 
 	      (list (list concat-keys (cons "&key" concat-keys))))))
-      (while (setq entry (pop insert-entries))
-	;; Format the citation and insert it
-	(setq title (reftex-get-bib-field "title" entry))
-	(setq filename (scholar-extract-filename (reftex-get-bib-field "file" entry)))
-    (unless filename
-      (setq filename (reftex-get-bib-field "URL" entry)))
-    (setq key (reftex-get-bib-field "&key" entry))
-    (insert "* ")
-    (if (string= "" filename)
+    entries)
+)
+
+(defun scholar-insert-org-link ()
+  (interactive)
+
+  (let* ((entries (scholar-get-bibtex-entries)))
+    (while (setq entry (pop entries))
+        ;; Format the citation and insert it
+        (setq key (reftex-get-bib-field "&key" entry))
+        (insert (concat "[[file:" key ".org][" key "]]"))
+    )
+))
+
+(defun scholar-new-note ()
+  (interactive)
+
+  (let* (filename key bibfiles (entries (scholar-get-bibtex-entries)))
+    (while (setq entry (pop entries))
+      (setq key (reftex-get-bib-field "&key" entry))
+      (setq filename (concat key ".org"))
+      (if (file-exists-p filename) (find-file filename)
+	(progn 
+	  (setq bibfiles (reftex-get-bibfile-list))
+	  (find-file filename)
+	  (insert
+	   (mapconcat 'identity
+		      (mapcar
+		       (lambda (b)
+			 (concat "# \\bibliography{"
+				 (file-name-nondirectory (file-name-sans-extension b)) "}")) bibfiles)
+		      "\n"))
+
+	  (newline)
+	  (newline)
+	  (reftex-parse-one)
+	  (scholar-insert-title-link entry)
+	  (goto-char (point-max)))))))
+
+(defun scholar-insert-title-link (&optional entry)
+  ;; This really does the work of reftex-citation.
+  (interactive)
+  
+  (unless entry
+    (let* ((entries (scholar-get-bibtex-entries)))
+      (while (setq entry-last (pop entries))
+	(setq entry entry-last))))
+
+  ;; Format the citation and insert it
+  (setq title (reftex-get-bib-field "title" entry))
+  (setq filename (scholar-extract-filename (reftex-get-bib-field "file" entry)))
+  (unless filename
+    (setq filename (reftex-get-bib-field "URL" entry)))
+  (setq key (reftex-get-bib-field "&key" entry))
+  (insert "* ")
+  (if (string= "" filename)
       (insert (concat title " (" key ")"))
       (org-insert-link nil filename (concat title " (" key ")")))
-    (org-set-property "CUSTOM_ID" key)
-    (org-todo)
-    (scholar-copy-org-id)
-)))
+  (org-set-property "CUSTOM_ID" key)
+  (org-todo)
+  (scholar-copy-org-id)
+)
 
 ;; Jump back to top level heading:
 (defun org-back-to-top-level-heading ()
