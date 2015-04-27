@@ -117,3 +117,5 @@
   (interactive)
   (or (re-search-backward "^\* " nil t)
       (goto-char (point-min))))
+
+(provide 'scholar)
