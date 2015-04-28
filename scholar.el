@@ -87,16 +87,6 @@
 	  (scholar-insert-title-link entry)
 	  (goto-char (point-max)))))))
 
-(defun scholar-insert-pandoc-bibref ()
-  (interactive)
-
-  (let* ((entries (scholar-get-bibtex-entries)) entry)
-    (while (setq entry (pop entries))
-        (setq key (reftex-get-bib-field "&key" entry))
-        (insert "@" key)
-    )
-))
-
 (defun scholar-insert-title-link (&optional entry)
   ;; This really does the work of reftex-citation.
   (interactive)
@@ -127,5 +117,22 @@
   (interactive)
   (or (re-search-backward "^\* " nil t)
       (goto-char (point-min))))
+
+; Pandoc-specific stuff
+(defun scholar-pandoc-insert-bibref ()
+  (interactive)
+  (let* ((entries (scholar-get-bibtex-entries)) entry)
+    (while (setq entry (pop entries))
+        (setq key (reftex-get-bib-field "&key" entry))
+        (insert "@" key)
+    )
+))
+
+(defun scholar-pandoc-insert-bibref-paren ()
+  (interactive)
+  (insert "[")
+  (scholar-pandoc-insert-bibref)
+  (insert "]")
+)
 
 (provide 'scholar)
